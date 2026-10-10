@@ -36,14 +36,13 @@
         {
           "target": "dmg",
           "arch": [
-            "universal"
+            "arm64"
           ]
         }
       ],
       "category": "public.app-category.music",
       "identity": "-",
       "hardenedRuntime": false,
-      "x64ArchFiles": "**/node_modules/uiohook-napi/prebuilds/**",
       "extendInfo": {
         "LSUIElement": true
       }

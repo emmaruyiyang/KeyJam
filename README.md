@@ -40,7 +40,7 @@ Global key capture (`uiohook-napi`) needs Accessibility access. In development m
 npm run dist
 ```
 
-Outputs `release/KeyJam-<version>-universal.dmg` (Apple Silicon + Intel). The app is ad-hoc signed and **not notarized**, which is fine for a small pilot but means macOS will warn on first open.
+Outputs `release/KeyJam-mac.dmg` for Apple Silicon Macs only (~97 MB; Intel Macs aren't supported). The app is ad-hoc signed and **not notarized**, which is fine for a small pilot but means macOS will warn on first open.
 
 ## Installing the pilot build (for testers)
 

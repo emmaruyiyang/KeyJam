@@ -1,9 +1,9 @@
 node_modules/
 .DS_Store
 *.log
-release/
+# release/
 dist/
 
 # Source video and extracted song clip: commercial music, keep out of the public repo
 assets/music/*.mp4
-assets/music/bad.mp3
+# assets/music/bad.mp3
