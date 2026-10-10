@@ -5,13 +5,52 @@
   "description": "Turn everyday typing into sound effects and micro-remixed music.",
   "main": "main.js",
   "scripts": {
-    "start": "electron .",
-    "dev": "ELECTRON_DEV=true electron ."
+    "start": "env -u ELECTRON_RUN_AS_NODE electron .",
+    "dev": "env -u ELECTRON_RUN_AS_NODE ELECTRON_DEV=true electron .",
+    "dist": "electron-builder --mac"
   },
   "dependencies": {
     "uiohook-napi": "^1.5.5"
   },
   "devDependencies": {
-    "electron": "^32.2.0"
+    "electron": "^32.2.0",
+    "electron-builder": "^26.15.3"
+  },
+  "author": "Ruyi Yang",
+  "build": {
+    "appId": "com.ruyiyang.keyjam",
+    "productName": "KeyJam",
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**",
+      "assets/sounds/**",
+      "assets/tray/**",
+      "assets/music/bad.mp3"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "category": "public.app-category.music",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "x64ArchFiles": "**/node_modules/uiohook-napi/prebuilds/**",
+      "extendInfo": {
+        "LSUIElement": true
+      }
+    },
+    "dmg": {
+      "title": "KeyJam ${version}",
+      "artifactName": "KeyJam-mac.dmg"
+    }
   }
 }

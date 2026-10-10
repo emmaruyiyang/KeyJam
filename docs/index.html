@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>KeyJam</title>
+  <meta name="description" content="KeyJam turns your typing into music and sound effects. A tiny menu bar app for Mac." />
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #fff;
+      --text: #000;
+      --muted: #4d4d4d;
+      --line: #000;
+      --soft: #f2f2f2;
+      --mono: "SF Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font-family: var(--mono); font-size: 14px; letter-spacing: .02em; line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    main { max-width: 560px; margin: 0 auto; padding: 48px 16px; }
+
+    .card { border: 1px solid var(--line); padding: 18px 20px; margin-bottom: 12px; }
+    .label {
+      font-size: 11px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase;
+      padding-bottom: 10px; margin-bottom: 14px; border-bottom: 1px solid var(--line);
+    }
+
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    h1 { font-size: 20px; font-weight: 700; letter-spacing: .22em; margin: 0; }
+    .badge { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; padding: 4px 8px; background: var(--text); color: var(--bg); }
+    .lede { margin: 0 0 18px; }
+
+    .download {
+      display: block; text-align: center; text-decoration: none;
+      background: var(--text); color: var(--bg); border: 1px solid var(--text);
+      padding: 14px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase;
+    }
+    .download:hover { background: var(--bg); color: var(--text); }
+    .meta { color: var(--muted); font-size: 12px; text-align: center; margin: 10px 0 0; }
+
+    ol { list-style: none; counter-reset: step; padding: 0; margin: 0; display: grid; gap: 8px; }
+    ol li {
+      counter-increment: step; display: grid; grid-template-columns: 44px 1fr; align-items: baseline;
+      border: 1px solid var(--line); padding: 10px 12px;
+    }
+    ol li::before { content: "0" counter(step); font-weight: 700; }
+    em { font-style: normal; font-weight: 700; }
+
+    .modes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .mode { border: 1px solid var(--line); padding: 12px; }
+    .mode b { display: block; letter-spacing: .14em; margin-bottom: 4px; }
+    .mode span { color: var(--muted); font-size: 13px; }
+
+    .note { background: var(--soft); border-color: var(--soft); color: var(--muted); font-size: 13px; }
+    .note p { margin: 0 0 8px; }
+    .note p:last-child { margin: 0; }
+    code { display: block; margin-top: 6px; font-family: var(--mono); font-size: 12px; color: var(--text); background: var(--bg); padding: 8px 10px; border: 1px solid #d0d0d0; word-break: break-all; }
+
+    @media (max-width: 420px) { .modes { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="card">
+      <header>
+        <h1>KEYJAM</h1>
+        <span class="badge">v0 · Pilot</span>
+      </header>
+      <p class="lede">Your keyboard is now an instrument. Type anywhere and music plays. Stop, and it stops.</p>
+      <a class="download" href="https://github.com/emmaruyiyang/KeyJam/releases/latest/download/KeyJam-mac.dmg">Download for Mac</a>
+      <p class="meta">macOS 10.15+ · Apple Silicon &amp; Intel · 176 MB</p>
+    </section>
+
+    <section class="card">
+      <div class="label">Install</div>
+      <ol>
+        <li><span>Open the DMG, drag <em>KeyJam</em> to Applications.</span></li>
+        <li><span>Open it. If macOS blocks it, go to <em>System Settings → Privacy &amp; Security</em> and click <em>Open Anyway</em>.</span></li>
+        <li><span>Turn on KeyJam in <em>Privacy &amp; Security → Accessibility</em>.</span></li>
+        <li><span>Click the KeyJam icon in the menu bar and start typing.</span></li>
+      </ol>
+    </section>
+
+    <section class="card">
+      <div class="label">Modes</div>
+      <div class="modes">
+        <div class="mode"><b>MUSIC</b><span>The song plays while you type.</span></div>
+        <div class="mode"><b>FX</b><span>A sound effect for every key.</span></div>
+      </div>
+    </section>
+
+    <section class="card note">
+      <p>KeyJam only reads which key was pressed. Nothing is recorded or sent anywhere.</p>
+      <p>Still blocked? Run this in Terminal:<code>xattr -dr com.apple.quarantine /Applications/KeyJam.app</code></p>
+    </section>
+  </main>
+</body>
+</html>

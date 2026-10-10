@@ -5,67 +5,138 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>KeyJam</title>
   <style>
-    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    :root {
+      color-scheme: dark;
+      --bg: #000;
+      --line: #2e2e2e;
+      --line-strong: #4a4a4a;
+      --text: #f5f5f5;
+      --muted: #8c8c8c;
+      --dim: #555;
+      --mono: "SF Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
     * { box-sizing: border-box; }
-    body { margin: 0; min-height: 100vh; background: #101114; color: #f6f7fb; display: grid; place-items: center; }
-    main { width: min(680px, calc(100vw - 40px)); }
-    h1 { font-size: 44px; margin: 0 0 6px; letter-spacing: -1.7px; }
-    .sub { color: #a8abb5; margin: 0 0 26px; }
-    .card { background: #191b20; border: 1px solid #2a2d35; border-radius: 18px; padding: 22px; margin-bottom: 14px; }
-    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-    button { border: 1px solid #363a45; background: #22252c; color: #f5f5f7; border-radius: 11px; padding: 11px 14px; font-weight: 650; cursor: pointer; }
-    button.active { background: #f2f2f3; color: #101114; border-color: #f2f2f3; }
-    .label { font-size: 12px; color: #858a97; text-transform: uppercase; letter-spacing: .11em; font-weight: 750; margin-bottom: 12px; }
-    .hint { color: #9da1ad; font-size: 13px; line-height: 1.5; margin-top: 12px; }
-    .metric { font-variant-numeric: tabular-nums; color: #d7d9df; min-width: 64px; }
-    input[type="range"] { flex: 1; min-width: 230px; }
-    .visual { height: 92px; display: flex; gap: 5px; align-items: end; margin-top: 16px; overflow: hidden; }
-    .bar { width: 9px; min-height: 5px; background: #ececf1; opacity: .8; border-radius: 5px 5px 2px 2px; transform-origin: bottom; transition: height 90ms ease; }
-    .status { display: flex; justify-content: space-between; gap: 20px; color: #b6bac4; font-size: 13px; }
-    .kbd { border: 1px solid #3b3f49; background: #24272e; border-bottom-width: 3px; border-radius: 7px; padding: 2px 7px; color: #eceef4; }
+    [hidden] { display: none !important; }
+    html, body { margin: 0; background: var(--bg); overflow: hidden; }
+    body {
+      color: var(--text); font-family: var(--mono); font-size: 12px; letter-spacing: .04em;
+      -webkit-font-smoothing: antialiased; user-select: none;
+    }
+    main { padding: 14px 16px 12px; }
+
+    header {
+      display: flex; justify-content: space-between; align-items: center; gap: 8px;
+      padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--line-strong);
+      -webkit-app-region: drag;
+    }
+    h1 { font-size: 14px; font-weight: 700; letter-spacing: .2em; margin: 0; }
+    .header-right { display: flex; align-items: center; gap: 8px; -webkit-app-region: no-drag; }
+    .badge {
+      font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+      padding: 3px 6px; border: 1px solid var(--text); background: var(--text); color: #000;
+    }
+    .badge.warn { background: transparent; color: var(--text); }
+    .icon-btn { border: none; padding: 2px 4px; color: var(--muted); font-size: 14px; letter-spacing: 0; }
+    .icon-btn:hover { color: var(--text); }
+
+    .card { border: 1px solid var(--line-strong); padding: 12px; margin-bottom: 8px; }
+    .hint { color: var(--muted); font-size: 11px; line-height: 1.5; letter-spacing: .02em; margin: 8px 0 0; }
+
+    button {
+      font: inherit; letter-spacing: .12em; text-transform: uppercase; cursor: pointer;
+      background: transparent; color: var(--text); border: 1px solid var(--line-strong); padding: 8px 10px;
+    }
+    button:hover { border-color: var(--text); }
+    button.active, button.solid { background: var(--text); color: #000; border-color: var(--text); }
+    .modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+
+    .notice { border-color: var(--text); }
+    .notice b { display: block; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; margin-bottom: 6px; }
+    .notice p { margin: 0 0 10px; color: var(--muted); line-height: 1.5; font-size: 11px; letter-spacing: .02em; }
+    .notice button { width: 100%; }
+
+    .track-name { font-weight: 700; letter-spacing: .1em; }
+    .track-meta { color: var(--muted); font-size: 10px; letter-spacing: .12em; margin-top: 4px; text-transform: uppercase; }
+    .progress { height: 2px; background: var(--line); margin-top: 10px; }
+    .progress-fill { height: 100%; width: 0; background: var(--text); }
+
+    .legend { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+    .cell { border: 1px solid var(--line); padding: 7px 4px; text-align: center; transition: background .06s, color .06s; }
+    .cell b { display: block; font-size: 11px; letter-spacing: .12em; }
+    .cell span { color: var(--muted); font-size: 10px; }
+    .cell.hit { background: var(--text); color: #000; }
+    .cell.hit span { color: #000; }
+
+    .off-note { color: var(--muted); letter-spacing: .14em; text-transform: uppercase; font-size: 10px; text-align: center; padding: 4px 0; }
+
+    .status { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; font-size: 10px; }
+    .status b { color: var(--text); }
+    .kbd {
+      display: inline-block; min-width: 22px; text-align: center; margin-left: 5px;
+      border: 1px solid var(--line-strong); border-bottom-width: 2px; padding: 1px 5px;
+      color: var(--text); font-weight: 700; font-size: 11px; transition: background .06s, color .06s;
+    }
+    .kbd.hit { background: var(--text); color: #000; }
+
+    footer { display: flex; justify-content: space-between; align-items: center; color: var(--dim); font-size: 10px; letter-spacing: .04em; margin-top: 4px; }
+    footer button { border: none; padding: 2px 0; color: var(--muted); font-size: 10px; }
+    footer button:hover { color: var(--text); }
   </style>
 </head>
 <body>
-  <main>
-    <h1>KeyJam</h1>
-    <p class="sub">Your keyboard is now an instrument.</p>
-
-    <section class="card">
-      <div class="label">Mode</div>
-      <div class="row">
-        <button data-mode="off">Off</button>
-        <button data-mode="fx">FX</button>
-        <button data-mode="music" class="active">She So Bad Remix</button>
+  <main id="root">
+    <header>
+      <h1>KEYJAM</h1>
+      <div class="header-right">
+        <span class="badge warn" id="statusBadge">Starting</span>
+        <button class="icon-btn" id="hideWindow" title="Hide (Esc)">✕</button>
       </div>
-      <p class="hint" id="modeHint">Every key recalls a tiny slice of the “She’s so bad” hook.</p>
+    </header>
+
+    <section class="card notice" id="permissionNotice" hidden>
+      <b id="permissionTitle">Keyboard access needed</b>
+      <p id="permissionText"></p>
+      <button class="solid" id="openSettings">Open System Settings</button>
+      <button class="solid" id="relaunchApp">Restart KeyJam</button>
     </section>
 
-    <section class="card" id="musicControls">
-      <div class="label">Music behavior</div>
-      <div class="row">
-        <button data-behavior="mapped" class="active">Key mapped</button>
-        <button data-behavior="sequence">Sequence</button>
-        <button data-behavior="shuffle">Shuffle</button>
+    <section class="card">
+      <div class="modes">
+        <button data-mode="music" class="active">Music</button>
+        <button data-mode="fx">FX</button>
+        <button data-mode="off">Off</button>
       </div>
-      <div class="row" style="margin-top:18px">
-        <span style="min-width:92px">Chunk size</span>
-        <input id="chunk" type="range" min="120" max="600" step="10" value="280" />
-        <span class="metric"><span id="chunkValue">280</span> ms</span>
+      <p class="hint" id="modeHint"></p>
+    </section>
+
+    <section class="card">
+      <div id="musicPanel">
+        <div class="track-name">BAD — ATEEZ</div>
+        <div class="track-meta"><span id="audioStatus">Loading…</span> · stops 250ms after you do</div>
+        <div class="progress"><div class="progress-fill" id="progressFill"></div></div>
       </div>
-      <p class="hint"><b>Key mapped</b>: the same key always triggers the same micro-sample. <b>Sequence</b>: your typing rhythm replays the phrase in order. <b>Shuffle</b>: every hit jumps somewhere new.</p>
-      <div class="visual" id="visual"></div>
+      <div id="fxPanel" class="legend" hidden>
+        <div class="cell" data-fx="bomb"><b>ENTER</b><span>Bomb</span></div>
+        <div class="cell" data-fx="gun"><b>SPACE</b><span>Gun</span></div>
+        <div class="cell" data-fx="pupu"><b>DELETE</b><span>Pupu</span></div>
+        <div class="cell" data-fx="duck"><b>OTHER</b><span>Duck</span></div>
+      </div>
+      <div id="offPanel" class="off-note" hidden>Silent · typing makes no sound</div>
     </section>
 
     <section class="card">
       <div class="status">
-        <span>Last key: <span class="kbd" id="lastKey">—</span></span>
-        <span id="audioStatus">Loading audio…</span>
+        <span>Key<span class="kbd" id="lastKey">—</span></span>
+        <span><b id="nowLine">Waiting</b></span>
         <span id="eventCount">0 hits</span>
       </div>
-      <p class="hint">Keep this app open, then type in VS Code, Notes, Chrome, etc. On macOS, global key capture may require Accessibility permission for Electron/Terminal.</p>
     </section>
 
-    <script src="app.js"></script>
+    <footer>
+      <span>Nothing you type is recorded.</span>
+      <button id="quitApp">Quit</button>
+    </footer>
   </main>
+  <script src="app.js"></script>
 </body>
 </html>

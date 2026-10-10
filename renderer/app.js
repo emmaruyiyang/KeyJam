@@ -1,12 +1,18 @@
 const state = {
   mode: 'music',
-  behavior: 'mapped',
-  chunkMs: 280,
+  holdMs: 250, // music fades out this long after the last key
   count: 0,
-  seqIndex: 0,
   ctx: null,
   musicBuffer: null,
   loadingMusic: null,
+  // Continuous playback: playhead is where the song resumes after a pause.
+  playhead: 0,
+  musicSource: null,
+  musicGain: null,
+  playStartedAt: 0,
+  playStartOffset: 0,
+  stopTimer: null,
+  frame: null,
   fxBuffers: {}
 };
 
@@ -21,19 +27,20 @@ const FX_FILES = {
 const lastKey = document.getElementById('lastKey');
 const eventCount = document.getElementById('eventCount');
 const audioStatus = document.getElementById('audioStatus');
-const chunk = document.getElementById('chunk');
-const chunkValue = document.getElementById('chunkValue');
-const musicControls = document.getElementById('musicControls');
+const nowLine = document.getElementById('nowLine');
 const modeHint = document.getElementById('modeHint');
-const visual = document.getElementById('visual');
-
-for (let i = 0; i < 38; i++) {
-  const bar = document.createElement('div');
-  bar.className = 'bar';
-  bar.style.height = `${8 + Math.random() * 42}px`;
-  visual.appendChild(bar);
-}
-const bars = [...visual.children];
+const statusBadge = document.getElementById('statusBadge');
+const progressFill = document.getElementById('progressFill');
+const panels = {
+  music: document.getElementById('musicPanel'),
+  fx: document.getElementById('fxPanel'),
+  off: document.getElementById('offPanel')
+};
+const permissionNotice = document.getElementById('permissionNotice');
+const permissionTitle = document.getElementById('permissionTitle');
+const permissionText = document.getElementById('permissionText');
+const openSettings = document.getElementById('openSettings');
+const relaunchApp = document.getElementById('relaunchApp');
 
 function audioContext() {
   if (!state.ctx) state.ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -46,13 +53,13 @@ async function ensureMusic() {
   state.loadingMusic = (async () => {
     try {
       const ctx = audioContext();
-      const response = await fetch('../assets/music/she-so-bad.mp3');
+      const response = await fetch('../assets/music/bad.mp3');
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       state.musicBuffer = await ctx.decodeAudioData(await response.arrayBuffer());
-      audioStatus.textContent = `${state.musicBuffer.duration.toFixed(1)}s sample ready`;
+      audioStatus.textContent = formatTime(state.musicBuffer.duration);
       return state.musicBuffer;
     } catch (e) {
-      audioStatus.textContent = 'Music sample failed to load';
+      audioStatus.textContent = 'Failed to load';
       console.error(e);
       return null;
     }
@@ -73,27 +80,31 @@ async function loadFx() {
   }));
 }
 
+function formatTime(seconds) {
+  return `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
+}
+
 function setMode(mode) {
   state.mode = mode;
+  if (mode !== 'music') stopMusic();
   document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
-  musicControls.style.opacity = mode === 'music' ? '1' : '.42';
-  if (mode === 'music') modeHint.textContent = 'Every key recalls a tiny slice of the “She’s so bad” hook.';
-  if (mode === 'fx') modeHint.textContent = 'Enter = bomb, Space = gun, Backspace = pupu, other keys = duck squeeze.';
-  if (mode === 'off') modeHint.textContent = 'Typing stays silent.';
+  Object.entries(panels).forEach(([name, el]) => { el.hidden = name !== mode; });
+  nowLine.textContent = mode === 'off' ? 'Silent' : 'Waiting';
+  modeHint.textContent = {
+    music: 'Typing plays the song. Stop typing and it stops.',
+    fx: 'Every key gets a sound effect.',
+    off: 'Typing stays silent.'
+  }[mode];
+  window.keyJam.modeChanged(mode);
 }
 
 document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
-document.querySelectorAll('[data-behavior]').forEach(b => b.addEventListener('click', () => {
-  state.behavior = b.dataset.behavior;
-  state.seqIndex = 0;
-  document.querySelectorAll('[data-behavior]').forEach(x => x.classList.toggle('active', x === b));
-}));
 
-chunk.addEventListener('input', () => {
-  state.chunkMs = Number(chunk.value);
-  chunkValue.textContent = chunk.value;
-  state.seqIndex = 0;
-});
+function flash(el) {
+  el.classList.add('hit');
+  clearTimeout(el.flashTimer);
+  el.flashTimer = setTimeout(() => el.classList.remove('hit'), 120);
+}
 
 function noiseBuffer(seconds = .25) {
   const ctx = audioContext();
@@ -181,59 +192,130 @@ function playSample(name, fallback) {
   source.start();
 }
 
+const FX_KEYS = {
+  0x001C: ['bomb', explosion], // Enter
+  0x0039: ['gun', gun],        // Space
+  0x000E: ['pupu', plop]       // Backspace
+};
+
 function playFx(keycode) {
-  if (keycode === 0x001C) return playSample('bomb', explosion); // Enter
-  if (keycode === 0x0039) return playSample('gun', gun);        // Space
-  if (keycode === 0x000E) return playSample('pupu', plop);      // Backspace
-  playSample('duck', quack);
+  const [name, fallback] = FX_KEYS[keycode] || ['duck', quack];
+  playSample(name, fallback);
+  flash(document.querySelector(`[data-fx="${name}"]`));
+  nowLine.textContent = name;
 }
 
-async function playMusicChunk(keycode) {
+function currentPlayhead() {
+  if (!state.musicSource) return state.playhead;
+  const elapsed = state.ctx.currentTime - state.playStartedAt;
+  return (state.playStartOffset + elapsed) % state.musicBuffer.duration;
+}
+
+function drawProgress() {
+  progressFill.style.width = `${(currentPlayhead() / state.musicBuffer.duration) * 100}%`;
+  if (state.musicSource) state.frame = requestAnimationFrame(drawProgress);
+}
+
+function stopMusic() {
+  clearTimeout(state.stopTimer);
+  state.stopTimer = null;
+  if (!state.musicSource) return;
+  const ctx = audioContext();
+  const t = ctx.currentTime;
+  state.playhead = currentPlayhead();
+  // Short fade so the cut doesn't click.
+  state.musicGain.gain.setTargetAtTime(0, t, .04);
+  state.musicSource.stop(t + .2);
+  state.musicSource = null;
+  state.musicGain = null;
+  cancelAnimationFrame(state.frame);
+  if (state.mode === 'music') nowLine.textContent = 'Paused';
+}
+
+async function playMusic() {
   const buffer = await ensureMusic();
-  if (!buffer) return;
+  if (!buffer || state.mode !== 'music') return;
   const ctx = audioContext();
   if (ctx.state === 'suspended') await ctx.resume().catch(() => {});
 
-  const chunkSec = Math.min(state.chunkMs / 1000, Math.max(.08, buffer.duration / 3));
-  const slots = Math.max(1, Math.floor(buffer.duration / chunkSec));
-  let slot;
-
-  if (state.behavior === 'sequence') {
-    slot = state.seqIndex++ % slots;
-  } else if (state.behavior === 'shuffle') {
-    slot = Math.floor(Math.random() * slots);
-  } else {
-    slot = Math.abs((keycode * 17 + 11) % slots);
+  if (!state.musicSource) {
+    const t = ctx.currentTime;
+    const source = ctx.createBufferSource();
+    const gain = ctx.createGain();
+    source.buffer = buffer;
+    source.loop = true;
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(.92, t + .03);
+    source.connect(gain).connect(ctx.destination);
+    source.start(t, state.playhead);
+    state.musicSource = source;
+    state.musicGain = gain;
+    state.playStartedAt = t;
+    state.playStartOffset = state.playhead;
+    state.frame = requestAnimationFrame(drawProgress);
+    nowLine.textContent = 'Playing';
   }
 
-  const offset = Math.min(slot * chunkSec, Math.max(0, buffer.duration - chunkSec));
-  const source = ctx.createBufferSource();
-  const gain = ctx.createGain();
-  source.buffer = buffer;
-  gain.gain.value = .92;
-  source.connect(gain).connect(ctx.destination);
-  source.start(0, offset, chunkSec);
-
-  bars.forEach((bar, i) => {
-    const d = Math.abs((i / bars.length) - (slot / slots));
-    bar.style.height = `${8 + Math.max(0, 1 - d * 6) * 72}px`;
-  });
+  clearTimeout(state.stopTimer);
+  state.stopTimer = setTimeout(stopMusic, state.holdMs);
 }
 
+// uiohook keycodes are PC scan codes (set 1).
+const KEY_NAMES = {
+  0x001C: 'ENTER', 0x0039: 'SPACE', 0x000E: 'DELETE', 0x000F: 'TAB', 0x0001: 'ESC',
+  0x002A: 'SHIFT', 0x0036: 'SHIFT', 0x001D: 'CTRL', 0x0038: 'OPT', 0x0E5B: 'CMD', 0x0E5C: 'CMD', 0x003A: 'CAPS',
+  0xE048: '↑', 0xE050: '↓', 0xE04B: '←', 0xE04D: '→',
+  0x000C: '-', 0x000D: '=', 0x001A: '[', 0x001B: ']', 0x0027: ';', 0x0028: "'", 0x0029: '`',
+  0x002B: '\\', 0x0033: ',', 0x0034: '.', 0x0035: '/'
+};
+[['QWERTYUIOP', 0x10], ['ASDFGHJKL', 0x1E], ['ZXCVBNM', 0x2C], ['1234567890', 0x02]].forEach(([row, start]) => {
+  [...row].forEach((ch, i) => { KEY_NAMES[start + i] = ch; });
+});
+
 function keyLabel(code) {
-  if (code === 0x001C) return 'Enter';
-  if (code === 0x0039) return 'Space';
-  if (code === 0x000E) return 'Backspace';
-  return `0x${Number(code).toString(16).toUpperCase()}`;
+  return KEY_NAMES[code] || '•';
 }
 
 window.keyJam.onGlobalKeydown(async event => {
   state.count++;
-  lastKey.textContent = keyLabel(event.keycode);
+  const label = keyLabel(event.keycode);
+  lastKey.textContent = label;
+  flash(lastKey);
   eventCount.textContent = `${state.count} hit${state.count === 1 ? '' : 's'}`;
   if (state.mode === 'fx') playFx(event.keycode);
-  if (state.mode === 'music') playMusicChunk(event.keycode);
+  if (state.mode === 'music') playMusic();
 });
+
+function showKeyboardStatus(status) {
+  permissionNotice.hidden = status === 'listening';
+  statusBadge.textContent = { listening: 'Listening', 'needs-permission': 'No access', 'needs-restart': 'Restart' }[status];
+  statusBadge.classList.toggle('warn', status !== 'listening');
+  if (status === 'needs-permission') {
+    permissionTitle.textContent = 'Keyboard access needed';
+    permissionText.textContent = 'Turn on KeyJam in Privacy & Security → Accessibility. It starts working as soon as it’s on.';
+    openSettings.hidden = false;
+    relaunchApp.hidden = true;
+  }
+  if (status === 'needs-restart') {
+    permissionTitle.textContent = 'Almost there';
+    permissionText.textContent = 'Access is on, but macOS needs KeyJam to restart before it takes effect.';
+    openSettings.hidden = true;
+    relaunchApp.hidden = false;
+  }
+}
+
+openSettings.addEventListener('click', () => window.keyJam.openAccessibilitySettings());
+document.getElementById('hideWindow').addEventListener('click', () => window.keyJam.hideWindow());
+document.getElementById('quitApp').addEventListener('click', () => window.keyJam.quit());
+document.addEventListener('keydown', event => { if (event.key === 'Escape') window.keyJam.hideWindow(); });
+window.keyJam.onSetMode(setMode);
+
+// The window is sized to fit its content, which changes with mode and the permission notice.
+new ResizeObserver(() => window.keyJam.setContentHeight(document.getElementById('root').offsetHeight))
+  .observe(document.getElementById('root'));
+relaunchApp.addEventListener('click', () => window.keyJam.relaunch());
+window.keyJam.onKeyboardStatus(showKeyboardStatus);
+window.keyJam.getKeyboardStatus().then(showKeyboardStatus);
 
 ensureMusic();
 loadFx();
