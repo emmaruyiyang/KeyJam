@@ -1,0 +1,17 @@
+{
+  "name": "keyjam",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Turn everyday typing into sound effects and micro-remixed music.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "ELECTRON_DEV=true electron ."
+  },
+  "dependencies": {
+    "uiohook-napi": "^1.5.5"
+  },
+  "devDependencies": {
+    "electron": "^32.2.0"
+  }
+}
