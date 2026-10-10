@@ -1,5 +1,7 @@
 # KeyJam
 
+**Landing page:** https://www.ruyiyang.com/KeyJam/
+
 A tiny standalone macOS/desktop experiment that turns ordinary typing into sound.
 
 ## Menu bar app
